@@ -44,10 +44,8 @@ public class MainActivity extends Activity {
     Button sendPost = null;
     Button sendComment = null;
     ImageButton logo = null;
-    EditText codeEntered = null;
     TextView entrezCode = null;
     TextView codeSurNotice = null;
-    TextView codeAEteChange = null;
     TextView texteRecu = null;
     Handler bluetoothIn;
     boolean currentView = false;
@@ -63,6 +61,8 @@ public class MainActivity extends Activity {
 
     String connectionError = "PortalStudio n'a pas pu se connecter au portail. Vérifiez votre connexion bluetooth. Tapez sur le logo pour réessayer la connexion.";
 
+    //Initializes the Bluetooth connection.
+    //Important detail: it always connects to the device that is the lowest in your paired devices list.
     private void init() throws IOException {
         Thread connexionThread = new Thread(new Runnable()
         {
@@ -102,10 +102,13 @@ public class MainActivity extends Activity {
 
     }
 
+    //Writes a string to the bluetooth device.
     public void write(String s) throws IOException, NullPointerException {
         outputStream.write(s.getBytes());
     }
 
+    //Once this method is called, begins listening for data.
+    //Note: always place this method in a if checking if inStream != null. Else it will crash.
     void beginListenForData() {
         Thread workerThread = new Thread(new Runnable()
         {
@@ -133,6 +136,7 @@ public class MainActivity extends Activity {
         workerThread.start();
     }
 
+    //Checks if the bluetooth is enabled, and tries connecting.
     void checkBluetooth() {
         //Prompt user to turn on Bluetooth if Bluetooth is disabled
         if (!blueAdapter.isEnabled()) {
@@ -147,56 +151,37 @@ public class MainActivity extends Activity {
         }
     }
 
-
-
     void toast(String str) {
         myToast.setText(str);
         myToast.show();
     }
-
-
-
-
-
+    
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         myToast = Toast.makeText(getBaseContext(), "", Toast.LENGTH_SHORT);
-        // On récupère toutes les vues dont on a besoin
         sendPost = (Button)findViewById(R.id.sendPost);
         sendComment = (Button)findViewById(R.id.sendComment);
         codeSurNotice = (TextView)findViewById(R.id.codeSurNotice);
         entrezCode = (TextView)findViewById(R.id.entrezCode);
         texteRecu = (TextView)findViewById(R.id.texteRecu);
-        // On attribue un listener adapté aux vues qui en ont besoin
         logo = (ImageButton)findViewById(R.id.logo);
         logo.setOnClickListener(logoListener);
         sendPost.setOnClickListener(sendPostListener);
         sendComment.setOnClickListener(sendCommentListener);
+
+        //This code allows connecting to the internet without doing so in a new thread.
         if (android.os.Build.VERSION.SDK_INT > 9) {
             StrictMode.ThreadPolicy policy =
                     new StrictMode.ThreadPolicy.Builder().permitAll().build();
             StrictMode.setThreadPolicy(policy);
         }
-        //codeEntered.addTextChangedListener(textWatcher);
-        //codeAEteChange.setVisibility(View.GONE);
+
         checkBluetooth();
-
-        /*try {
-            FileInputStream fIn = openFileInput("codefile.txt");
-            InputStreamReader isr = new InputStreamReader(fIn);
-
-            char[] inputBuffer = new char[4];
-            isr.read(inputBuffer);
-
-            // Transform the chars to a String
-            String readString = new String(inputBuffer);
-            code = readString;
-        } catch (FileNotFoundException e) {
-        } catch (IOException e) {
-            toast("PortalStudio a trouvé le fichier, mais n'a pas pu le lire");
-        }*/
+    
+        //Handler that receives the data from the bluetooth device.
+        //Any manipulation of the received data must be done here (after the messageFinal assignment to msg.obj).
         bluetoothIn = new Handler() {
             public void handleMessage(android.os.Message msg) {
                 if (msg.what == handlerState) {
@@ -218,23 +203,8 @@ public class MainActivity extends Activity {
     }
 
 
-    private TextWatcher textWatcher = new TextWatcher() {
-
-        @Override
-        public void onTextChanged(CharSequence s, int start, int before, int count) {
-            codeSurNotice.setText(defaut);
-        }
-        @Override
-        public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-
-        }
-        @Override
-        public void afterTextChanged(Editable s) {
-
-        }
-    };
-
-    // Uniquement pour le bouton "envoyer"
+    
+    //Tapping on the logo retries the connection if it failed.
     private OnClickListener logoListener = new OnClickListener() {
         @Override
         public void onClick(View v) {
@@ -248,6 +218,7 @@ public class MainActivity extends Activity {
         }
     };
 
+    //Listener for the "send post" button. Is debug and planned to be removed.
     private OnClickListener sendPostListener = new OnClickListener() {
         @Override
         public void onClick(View v) {
@@ -277,7 +248,8 @@ public class MainActivity extends Activity {
 
         }
     };
-
+    
+    //Listener for the "send comment" button, is also debug.
     private OnClickListener sendCommentListener = new OnClickListener() {
         @Override
         public void onClick(View v) {
@@ -308,7 +280,9 @@ public class MainActivity extends Activity {
 
         }
     };
-
+    
+    //Parses the json from a reddit url containing comments.
+    //Don't try to understand this, it works, that's all you need to know.
     String getComments(String url) {
 
         String str = "test";
@@ -461,18 +435,13 @@ public class MainActivity extends Activity {
         return result + "\"";
     }
 
+    //Parses the json of a reddit sub (which contains posts)
     String getPost(String url) {
         String str = "test";
-        do {
-            /*new Thread( new Runnable() {
-
-            }).start();*/
-            try {
-                str = getText(url);
-            } catch (Exception e) {}
-        } while (str.equals("test"));
-        toast(str);
-        //toast ("Finished getting text");
+        //connects to the given url
+        try {
+            str = getText(url);
+        } catch (Exception e) {}
 
         String posts = "";
         String currentPostTitle = "";
@@ -485,13 +454,13 @@ public class MainActivity extends Activity {
         String[] postAttributes = {currentPostUrl, currentPostSub, currentPostId, currentPostUser, currentPostScore, currentPostCmts, currentPostTitle};
         String[] jsonAttributes = {"domain", "subreddit", "id", "author", "score", "num_comments", "title"};
 
-        for (int i = 0; i < str.length(); i++) {
-            if (str.startsWith("{\"kind\": \"t3\"", i)) {
+        for (int i = 0; i < str.length(); i++) { //browses through the string
+            if (str.startsWith("{\"kind\": \"t3\"", i)) { //beginning of post
                 int j = 0;
-                while (!str.substring(i - 1, i + 27).equals("}}, {\"kind\": \"t3\", \"data\": {")
+                while (!str.substring(i - 1, i + 27).equals("}}, {\"kind\": \"t3\", \"data\": {") //loops while post is not finished
                         && !str.substring(i - 1, i + 11).equals("}}], \"after\"")) {
                     i++;
-                    if (j < jsonAttributes.length && str.startsWith("\"" + jsonAttributes[j] + "\": ", i)) {
+                    if (j < jsonAttributes.length && str.startsWith("\"" + jsonAttributes[j] + "\": ", i)) { //assigns values of attributes to their variables
                         i += jsonAttributes[j].length() + 4;
                         int end = 0;
                         if (j == 4 || j == 5)
@@ -500,34 +469,31 @@ public class MainActivity extends Activity {
                             i++;
                             end = i;
                             while (!str.substring(end - 1, end + 3).equals("\", \"")) {
-                                //System.out.println(str.substring(end-1, end+3));
                                 end++;
                             }
                             end--;
                         }
                         postAttributes[j] = str.substring(i, end);
-                        //System.out.println("test2 " + postAttributes[j]);
-                        //System.out.println("test" + jsonAttributes[j]);
                         j++;
                     }
                 }
-                //System.out.println("fin de post");
                 if (postAttributes[0].startsWith("self."))
                     postAttributes[0] = "self";
                 else
                     postAttributes[0] = "ext.link";
+                
                 postIds.add(postAttributes[2]);
                 posts += "<p " + postAttributes[6] + "\n" + postAttributes[0] + " /r/" + postAttributes[1]
                         + " /u/" + postAttributes[3] + " " + postAttributes[4] + " upvotes " + postAttributes[5] + " comments>\n";
             }
 
         }
-        //toast("Finished result");
+        
         return posts + "\"";
     }
 
+    //Connects to a given url
     public String getText(String url) throws Exception {
-        //toast("Trying to connect to " + url);
         URL website = new URL(url);
         URLConnection connection = website.openConnection();
         connection.setRequestProperty("User-Agent", "android:com.zezombye.caddit:v1.0 (by /u/Zezombye)");
@@ -542,14 +508,14 @@ public class MainActivity extends Activity {
             response.append(inputLine);
 
         in.close();
-        //toast("Successfully connected");
         return response.toString();
     }
-
+    
+    //Replaces special characters in the json
     static String modifyText(String str) {
-        str = str.replaceAll("\\\\\\\"", "&q;"); //transforme \" en "
-        str = str.replaceAll("\\n", "\n"); //transforme \n en nouvelle ligne
-        str = str.replaceAll("\\\\\\\\", "\\\\"); // transforme \\ en \
+        str = str.replaceAll("\\\\\\\"", "&q;"); //replaces \" by &q
+        str = str.replaceAll("\\n", "\n"); //replaces \n by the LF character
+        str = str.replaceAll("\\\\\\\\", "\\\\"); //replaces \\ by \
         str = str.replaceAll("&amp;", "&");
         return str;
     }
