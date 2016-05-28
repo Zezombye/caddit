@@ -1,6 +1,6 @@
 To exchange the information, the addin and the application must respect the current format.
 
---------Addin -> Application---------
+######### Addin -> Application #########
 
 All the commands are in the form &xx; with x being a character.
 This is because of a weird bug within the addin that, for some reason, messes up the bits
@@ -31,7 +31,7 @@ More characters:
 Due to the reception buffer limit of 1 ko, if the application sends that the transmission is not yet finished,
 the addin sends &ak; once it has finished storing the characters sent.
 
---------Application -> Addin---------
+######### Application -> Addin #########
 
 The data read by the addin must be in some kind of weird custom xml format.
 
