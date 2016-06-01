@@ -57,7 +57,13 @@ public class MainActivity extends Activity {
     private InputStream inStream;
     ArrayList<String> postIds = new ArrayList<String>();
     int postNumber = 0;
-    String subreddit = "skymine_";
+    String subreddit = "";
+
+    String[] subreddits = {"talesfromtechsupport", "talesfromretail", "caddit", "askreddit", "nosleep"};
+    char[] subCommands = {'t', 'r', 'c', 'a', 'n'};
+    String messageAEnvoyer = "";
+    int progressionEnvoi = 0;
+    int progressionPage = 0;
 
     String connectionError = "PortalStudio n'a pas pu se connecter au portail. Vérifiez votre connexion bluetooth. Tapez sur le logo pour réessayer la connexion.";
 
@@ -88,7 +94,7 @@ public class MainActivity extends Activity {
                             }
 
                             Log.e("error", "No appropriate paired devices.");
-                        }else{
+                        } else {
                             Log.e("error", "Bluetooth is disabled.");
                         }
                     }
@@ -155,7 +161,7 @@ public class MainActivity extends Activity {
         myToast.setText(str);
         myToast.show();
     }
-    
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -178,8 +184,6 @@ public class MainActivity extends Activity {
             StrictMode.setThreadPolicy(policy);
         }
 
-        checkBluetooth();
-    
         //Handler that receives the data from the bluetooth device.
         //Any manipulation of the received data must be done here (after the messageFinal assignment to msg.obj).
         bluetoothIn = new Handler() {
@@ -188,7 +192,40 @@ public class MainActivity extends Activity {
                     toast(messageFinal);
                     messageFinal += (String) msg.obj; //for some reason removing the + causes it to remove the first character
                     texteRecu.setText(messageFinal);
+                    if (messageFinal.matches("[\\s\\S]*\\w\\w;[\\s\\S]*")) {
+                        char command = messageFinal.charAt(messageFinal.indexOf(";")-2);
+                        char arg = messageFinal.charAt(messageFinal.indexOf(";")-1);
+                        toast("command = " + command + "\narg = " + arg);
+                        if (command == 's') {
+                            for (int i = 0; i < subCommands.length; i++) {
+                                if (arg == subCommands[i]) {
+                                    subreddit = subreddits[i];
+                                }
+                            }
+                            getPost("https://reddit.com/r/"+subreddit+".json");
 
+                        }
+                        else if (command == 'p') {
+                            postNumber = arg-65;
+                            try {
+                                getComments("https://reddit.com/" + postIds.get(postNumber) + ".json");
+                                toast("Post ID: "+ postIds.get(postNumber));
+                            } catch (ArrayIndexOutOfBoundsException e) {
+                                toast("Couldn't find a valid post rank, defaulting to the first post.");
+                                getComments("https://reddit.com/" + postIds.get(0) + ".json");
+                            }
+                        }
+                        else if (command == 'a' && arg == 'k') {
+                            sendString();
+                        }
+                        else if (command == 'n' && arg == 'p') {
+                            /*if (messageAEnvoyer.substring(progressionPage).length() > 5000) {
+                                progressionPage += 5000;
+                            }*/
+                            progressionEnvoi = 0;
+                            sendString();
+                        }
+                    }
                 }
             }
         };
@@ -203,7 +240,7 @@ public class MainActivity extends Activity {
     }
 
 
-    
+
     //Tapping on the logo retries the connection if it failed.
     private OnClickListener logoListener = new OnClickListener() {
         @Override
@@ -222,25 +259,13 @@ public class MainActivity extends Activity {
     private OnClickListener sendPostListener = new OnClickListener() {
         @Override
         public void onClick(View v) {
-            currentView = true;
             messageFinal = "";
             if (inStream != null) {
                 beginListenForData();
 
-                String aEnvoyer;
+                getPost("https://reddit.com/r/" + subreddit + ".json");
+                sendString();
 
-                if (currentView)
-                    aEnvoyer = getPost("https://reddit.com/r/" + subreddit + ".json") + "\"";
-                else
-                    aEnvoyer = "<p test post> <1 test comment> <2 test second comment>\"\n";
-
-                try {
-                    write(aEnvoyer);
-                } catch (IOException e) {
-
-                } catch (NullPointerException e) {
-                    toast(connectionError);
-                }
             } else {
                 toast(connectionError);
             }
@@ -248,7 +273,7 @@ public class MainActivity extends Activity {
 
         }
     };
-    
+
     //Listener for the "send comment" button, is also debug.
     private OnClickListener sendCommentListener = new OnClickListener() {
         @Override
@@ -258,21 +283,14 @@ public class MainActivity extends Activity {
             if (inStream != null) {
                 beginListenForData();
 
-                String aEnvoyer;
-
-                if (currentView)
-                    aEnvoyer = "<r /r/the_donald> <p t=YOU CAN'T STUMP THE TRUMP\" a=/r/the_donald 4324 upvotes>Z";
-                else
-                    aEnvoyer = "<r " + subreddit + "> " + getComments("https://reddit.com/" + postIds.get(postNumber) + ".json");
-                toast(postIds.get(postNumber));
-
                 try {
-                    write(aEnvoyer);
-                } catch (IOException e) {
-
-                } catch (NullPointerException e) {
-                    toast(connectionError);
+                    getComments("https://reddit.com/" + postIds.get(postNumber) + ".json");
+                } catch (ArrayIndexOutOfBoundsException e) {
+                    toast("Index out of bounds!");
                 }
+                toast("Post ID: "+ postIds.get(postNumber));
+                sendString();
+
             } else {
                 toast(connectionError);
             }
@@ -280,15 +298,58 @@ public class MainActivity extends Activity {
 
         }
     };
-    
+
+    void sendString() {
+        String aEnvoyer = "";
+        messageFinal = "";
+        int progTotale = progressionEnvoi + progressionPage;
+        //progressionEnvoi = 0;
+        if (messageAEnvoyer.substring(progressionPage).length() > 1000 && progressionEnvoi < 4000
+                && messageAEnvoyer.substring(progTotale, progTotale+1000).length() > 1000) {
+            aEnvoyer = messageAEnvoyer.substring(
+                    progTotale, progTotale + 1000) + ",\"";
+
+            progressionEnvoi += 1000;
+        } else if (messageAEnvoyer.length() > progressionPage+5000){
+            int max = messageAEnvoyer.lastIndexOf(messageAEnvoyer.substring(progTotale,progTotale+1000),'>');
+            boolean mettreChevron = false;
+            if (max == -1) { //no occurrence of '>'
+                max = messageAEnvoyer.lastIndexOf(messageAEnvoyer.substring(progTotale,progTotale+1000),'\n');
+                if (max == -1) //no occurrence of '\n'
+                    max = progressionEnvoi+progressionPage+1000;
+                mettreChevron = true; //there's no occurrence of '>' so we add one
+            }
+
+            aEnvoyer = messageAEnvoyer.substring(progressionEnvoi+progressionPage, max);
+            if (mettreChevron) {
+                aEnvoyer += '>';
+                //inserts a '<' after
+                messageAEnvoyer = messageAEnvoyer.substring(0, progTotale+max) + '<' + messageAEnvoyer.substring(progTotale+max+1);
+            }
+            aEnvoyer += ";\"";
+            progressionPage += messageAEnvoyer.lastIndexOf('>', progressionEnvoi+progressionPage);
+        } else {
+            aEnvoyer = messageAEnvoyer.substring(progressionEnvoi+progressionPage) + "\"";
+        }
+        try {
+            write(aEnvoyer);
+        } catch (IOException e) {
+
+        } catch (NullPointerException e) {
+            toast(connectionError);
+        }
+    }
+
     //Parses the json from a reddit url containing comments.
     //Don't try to understand this, it works, that's all you need to know.
-    String getComments(String url) {
+    void getComments(String url) {
 
         String str = "test";
         try {
             str = getText(url);
-        } catch (Exception e) {}
+        } catch (Exception e) {
+            toast("Erreur de connexion");
+        }
         toast(str);
         String result = "";
         String textPostContent = "";
@@ -306,17 +367,11 @@ public class MainActivity extends Activity {
 
         System.out.println("Beginning comment level analysis");
         for (int i = 10; i < str.length(); i++) {
-            //System.out.println(str.substring(i-1, i+11));
             if (str.startsWith("}}], \"after\"", i)) {
                 commentLvl--;
-					/*String tabs = "";
-					for (int j = 0; j < commentLvl; j++)
-						tabs += "\t";
-					System.out.println(tabs + "End of comment found. lvl = " + commentLvl);*/
             } else if (str.startsWith("[{\"kind\": \"t1\"", i)) {
                 commentLvl++;
                 commentLvls.add(commentLvl);
-                //commentLvl++;
 
             } else if (str.startsWith(" {\"kind\": \"t1\"", i)) {
                 commentLvls.add(commentLvl);
@@ -325,9 +380,6 @@ public class MainActivity extends Activity {
         }
 
 
-			/*boolean containsReplies = false;
-			boolean isReply = false;
-			boolean nextCmtIsALvlDown = false;*/
 
         for (int i = 0; i < str.length(); i++) {
             if (str.startsWith("{\"kind\": \"t3\"", i)) {
@@ -340,7 +392,6 @@ public class MainActivity extends Activity {
                         i++;
                         end = i;
                         while (!str.substring(end - 1, end + 3).equals("\", \"")) {
-                            //System.out.println(str.substring(end-1, end+3));
                             end++;
                         }
                         end--;
@@ -348,22 +399,12 @@ public class MainActivity extends Activity {
                             textPostContent = str.substring(i, end) + "\n" + textPostContent;
                         else
                             textPostContent += str.substring(i, end);
-                        //System.out.println("test2 " + postAttributes[j]);
-                        //System.out.println("test" + jsonAttributes[j]);
                         j++;
                     }
                 }
                 result += "<t " + textPostContent + "> \n";
             } else if (str.startsWith("{\"kind\": \"t1\"", i)) {
                 currentComment++;
-					/*if (containsReplies)
-						isReply = true;
-					else if (str.charAt(i-1) == '[')
-						isReply = false;*/
-                //System.out.println("*****************************\nComment found.");
-                //System.out.println(str.charAt(i-1));
-                //System.out.println("is reply = " + isReply);
-                //System.out.println("previous comment contains replies : " + containsReplies);
                 int l = i;
                 int j = 0;
                 int k = 0;
@@ -373,27 +414,18 @@ public class MainActivity extends Activity {
                     if (j < cmtAttributes.length && str.startsWith("\"" + cmtAttributes[j] + "\": ", l)) {
                         l += cmtAttributes[j].length() + 4;
 
-                        //l++;
                         int end = l;
-                        //System.out.println("Attribute found: " + cmtAttributes[j]);
                         if (j == 0) {
 
-                            //System.out.println("Skipping possible child comments.");
                             l += 57;
-                            //System.out.println(str.substring(l));
-                            //containsReplies = false;
                             do {
                                 if (str.startsWith("{\"kind\": \"t1\"", l)) {
                                     k++;
-                                    //containsReplies = true; //if there are replies then the comment level goes up
-                                    //System.out.println("Child comment found, lvl " + (commentLvl+k));
                                 }
                                 if (str.startsWith("}}], \"after\"", l)) {
                                     k--;
-                                    //System.out.println("Child comment finished, k = " + k);
                                 }
                                 if (str.startsWith("}}, {\"kind\": \"t1\"", l)) {
-                                    //System.out.println("Child comment finished, another one found. k = " + k);
                                     l += 10;
                                 }
                                 l++;
@@ -402,46 +434,37 @@ public class MainActivity extends Activity {
                         } else {
                             if (j != 2) {
                                 while (!str.substring(end - 1, end + 3).equals("\", \"")) {
-                                    //System.out.println(str.substring(end-1, end+3));
                                     end++;
                                 }
                                 end--;
                                 l++;
                             } else {
                                 end = str.indexOf(',', l);
-                                //end--;
                             }
-                            //end--;
                             cmtVars[j - 1] = str.substring(l, end);
                         }
                         j++;
                     }
                 }
-					/*if (isReply)// && !str.substring(l-1, l+11).equals("}}], \"after\""))
-						if (nextCmtIsALvlDown)
-							commentLvl--;
-						else
-							commentLvl++;
-					else // if (!isReply)// if (str.charAt(i-1) == '[')
-						commentLvl = 0;
-
-					if (str.substring(l-1, l+11).equals("}}], \"after\""))
-						nextCmtIsALvlDown = true;*/
                 result += "<" + commentLvls.get(currentComment) + " " + cmtVars[2]
                         + "\n/u/" + cmtVars[0] + " " + cmtVars[1] + " upvotes>";
             }
         }
         result = modifyText(result);
-        return result + "\"";
+        messageAEnvoyer = result;
+        progressionEnvoi = 0;
+        sendString();
     }
 
     //Parses the json of a reddit sub (which contains posts)
-    String getPost(String url) {
+    void getPost(String url) {
         String str = "test";
         //connects to the given url
         try {
             str = getText(url);
-        } catch (Exception e) {}
+        } catch (Exception e) {
+            toast("Erreur de connexion");
+        }
 
         String posts = "";
         String currentPostTitle = "";
@@ -481,15 +504,17 @@ public class MainActivity extends Activity {
                     postAttributes[0] = "self";
                 else
                     postAttributes[0] = "ext.link";
-                
+
                 postIds.add(postAttributes[2]);
                 posts += "<p " + postAttributes[6] + "\n" + postAttributes[0] + " /r/" + postAttributes[1]
                         + " /u/" + postAttributes[3] + " " + postAttributes[4] + " upvotes " + postAttributes[5] + " comments>\n";
             }
 
         }
-        
-        return posts + "\"";
+
+        messageAEnvoyer = modifyText(posts);
+        progressionEnvoi = 0;
+        sendString();
     }
 
     //Connects to a given url
@@ -510,7 +535,7 @@ public class MainActivity extends Activity {
         in.close();
         return response.toString();
     }
-    
+
     //Replaces special characters in the json
     static String modifyText(String str) {
         str = str.replaceAll("\\\\\\\"", "&q;"); //replaces \" by &q
