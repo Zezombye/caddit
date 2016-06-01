@@ -2,16 +2,16 @@ To exchange the information, the addin and the application must respect the curr
 
 ######### Addin -> Application #########
 
-All the commands are in the form &xx; with x being a character.
+All the commands are in the form xx; with x being a character.
 This is because of a weird bug within the addin that, for some reason, messes up the bits
-after the first 4 characters. Therefore 4 characters long commands must be the maximum.
+after the first 3-4 characters. Therefore 3 characters long commands must be the maximum.
 
-Here are the different commands. The first character (after the '&') represents the command,
+Here are the different commands. The first character represents the command,
 the second character 'X' represents the argument.
 
 Subreddit:
 
-To connect to a specific subreddit, the command is &sX;
+To connect to a specific subreddit, the command is sX;
 Since only one character is allowed the different subs are hardcoded into the addin.
 't' = /r/TalesFromTechSupport
 'r' = /r/TalesFromRetail
@@ -24,12 +24,18 @@ Post:
 
 Once the user has selected a post, the addin sends the rank of the post, which is interpreted
 by the application as its ID.
-The command is &pX; and the rank of the post is in the range A-Y (25 posts is the maximum).
+The command is pX; and the rank of the post is in the range A-Y (25 posts is the maximum).
 
 More characters:
 
 Due to the reception buffer limit of 1 ko, if the application sends that the transmission is not yet finished,
-the addin sends &ak; once it has finished storing the characters sent.
+the addin sends ak; once it has finished storing the characters sent.
+
+Next page:
+
+If the application sends that there is more, the user can press a button to send np; which will prompt the
+application to send the next 5000 o. The 5000 o limit is because of the RAM limit; there are long posts and the
+addin may not be able to stock all the data, so it is transferred with a 5000 o max.
 
 ######### Application -> Addin #########
 
@@ -38,7 +44,8 @@ The data read by the addin must be in some kind of weird custom xml format.
 ################
 NOTE: ALL communications MUST be ended with a quote ("), to inform the addin that the transmission is finished.
 Therefore you must replace all quotes (whether backslashed or not) with the 0x81 character.
-If you still have data to send, end your communication with a '<' and then a quote.
+If you still have data to send (reached buffer limit) end your communication with a '<' and then a quote.
+If you have reached the 5000 o limit but still have data to send, end it with a ';' then a quote.
 ################
 
 Since < and > are special characters, replace them with 0x7F and 0x80 respectively.
