@@ -17,6 +17,7 @@ unsigned char strReceived[5010];
 
 unsigned char byteReceived;
 unsigned char byteSent;
+char stringFinished = 1;
 
 
 //const unsigned char str[] = "<r /r/SandersForPresident> <p t=Here are some dank memes:\nLook of disapproval: \x82\_\x82\nLenny face: (\x83\x84\x83\)\nSunglasses: (\x86\x85\_\x85\)\nShrug: \x87\\\_(\x88\)_/\x87\" a=(ext.link) r/sandersforpresident u/Zezombye 45 upvotes\"> <p t=This is the title of the second post! Gotta make it long though so that I have to scroll.\" a=(self) r/askreddit u/lephenixnoir\"> <p t=the quick brown fox jumps over the lazy dog\nTHE QUICK BROWN FOX JUMPS OVER THE LAZY DOG!!! (why are we yelling?)\" a=goddammit test\"> <p t=Fourth post\" a=.\"";
@@ -28,7 +29,7 @@ unsigned char byteSent;
 void dispPost(unsigned char* str, int strlen);
 void getPost(unsigned long posY);
 void dispCmt(unsigned char* str, int strlen);
-void sendSerial(unsigned char* code, int length);
+void sendSerial(unsigned char* code);
 void getSerial();
 
 int AddIn_main(int isAppli, unsigned short OptionNum)
@@ -38,9 +39,10 @@ int AddIn_main(int isAppli, unsigned short OptionNum)
 	unsigned char test[] = "TestTransmission\n";
 	Serial_Open(serialSettings);
 	ML_clear_vram();
-	sendSerial(test, sizeof(test));
+	//GetKey(&key);
+	sendSerial("sc");
 	dispStr(test, normfont, 1, 1, sizeof(test));
-	GetKey(&key);
+	
 	getSerial();
     while(1) {
 		ML_clear_vram();
@@ -68,18 +70,21 @@ int AddIn_main(int isAppli, unsigned short OptionNum)
 		if (key == KEY_CTRL_EXIT && currentView == 1) {
 			currentView = 0;
 		}
+		if (key == KEY_CTRL_SHIFT && !stringFinished) {
+			sendSerial("np");
+			getSerial();
+		}
     }
 
     return 1;
 }
 
-void sendSerial(unsigned char* code, int length) {
-	int i;
-	for (i = 0; i < length-1; i++) {
-		Serial_WriteByte(code[i]);
-	}
+void sendSerial(unsigned char* code) {
+	//Serial_WriteByte('&');
+	Serial_WriteByte(code[0]);
+	Serial_WriteByte(code[1]);
+	Serial_WriteByte(';');
 	Serial_WriteByte('\n');
-	//Serial_WriteBytes(code, length);
 }
 
 void getSerial() {
@@ -94,9 +99,19 @@ void getSerial() {
 			i++;
 		}
 		if (byteReceived == '"') {
-			//char* code = "bbbbi";
-			//sendSerial(code, 5);
-			break;
+			if (strReceived[i-1] == ',') {
+				sendSerial("ak");
+				i--;
+				strReceived[i] = '\0';
+				byteReceived = '\0';
+				Serial_ClearReceiveBuffer();
+			} else {
+				if (strReceived[i-1] == ';')
+					stringFinished = 0;
+				else
+					stringFinished = 1;
+				break;
+			}
 		}
 	}
 	//dispStr(strReceived, normfont, 10, 10, i);
@@ -109,12 +124,12 @@ void getPost(unsigned long posY) {
 		height += postHeights[rankOfPost]+3;
 		
 		if (height > posY+33) {
-			unsigned char str[5] = "&p ;";
-			str[2] = rankOfPost+48;
+			unsigned char str[3] = "p ";
+			str[1] = rankOfPost+65;
 			ML_clear_vram();
 			currentView = 1;
 			
-			sendSerial(str, 8);
+			sendSerial(str);
 			getSerial();
 			break;
 		}
