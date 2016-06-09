@@ -5,7 +5,7 @@
 #include "fonts.h"
 #include "serial.h"
 
-#define SCROLL 8 //number of pixels to scroll at each press of the up/down key
+#define SCROLL 1 //number of pixels to scroll at each press of the up/down key
 
 unsigned long posY[2] = {0}; //array holding the scroll for each view, so that if the user comes back from a comment page, he keeps his scroll position on the post page
 unsigned int key; 
@@ -14,6 +14,7 @@ unsigned int postHeights[26] = {0};
 char currentView = 0; //0=post, 1=comment
 
 unsigned char strReceived[5010];
+char subreddit[3];
 
 unsigned char byteReceived;
 unsigned char byteSent;
@@ -30,20 +31,21 @@ void dispPost(unsigned char* str, int strlen);
 void getPost(unsigned long posY);
 void dispCmt(unsigned char* str, int strlen);
 void sendSerial(unsigned char* code);
-void getSerial();
+char getSerial();
+void chooseSub();
+char dispIntroScreen();
 
-int AddIn_main(int isAppli, unsigned short OptionNum)
-
-{
+int AddIn_main(int isAppli, unsigned short OptionNum) {
 	unsigned char serialSettings[]={0,5,0,0,0,0};
-	unsigned char test[] = "TestTransmission\n";
+	//unsigned char test[] = "TestTransmission\n";
 	Serial_Open(serialSettings);
+	if (dispIntroScreen())
+		return 1;
+	chooseSub();
 	ML_clear_vram();
 	//GetKey(&key);
-	sendSerial("sc");
-	dispStr(test, normfont, 1, 1, sizeof(test));
+	//dispStr(test, normfont, 1, 1, sizeof(test));
 	
-	getSerial();
     while(1) {
 		ML_clear_vram();
 		
@@ -51,7 +53,7 @@ int AddIn_main(int isAppli, unsigned short OptionNum)
 		if (currentView == 0)
 			dispPost(strReceived, sizeof(strReceived));
 		else
-			dispCmt(strReceived, sizeof(strReceived));
+			dispCmt(strReceived, 5010);
 			//dispCmt(strCmt, sizeof(strCmt)); //put this line once demo is finished
 			//getPost(posY[0]);
 		
@@ -69,30 +71,98 @@ int AddIn_main(int isAppli, unsigned short OptionNum)
 		}
 		if (key == KEY_CTRL_EXIT && currentView == 1) {
 			currentView = 0;
+			sendSerial("st");
+			getSerial();
 		}
 		if (key == KEY_CTRL_SHIFT && !stringFinished) {
 			sendSerial("np");
 			getSerial();
+			posY[currentView] = 0;
+		}
+		if (key == KEY_CTRL_OPTN) {
+			chooseSub();
 		}
     }
 
     return 1;
 }
 
+char dispIntroScreen() {
+	
+	unsigned char nomAppli[10] = "Caddit";
+	unsigned char author[15] = "Par Zezombye";
+	unsigned char pressKey[75] = "Appuyez sur une touche pour commencer la connexion.";
+	unsigned char credits[100] = "Merci a Lephenixnoir, Dark Storm\n& la communaute de Planete Casio!";
+	unsigned char str[100] = "Connexion en cours...\n\nAppuyez sur [Exit] pour annuler.";
+	int length = 0;
+	int l;
+	int k = 9;
+	ML_horizontal_line(0, 0, 127, 1);
+	ML_horizontal_line(17, 0, 127, 1);
+	for (l = 0; l < k; l++)
+		length += normfont.length[nomAppli[l]-32] +1;
+	dispStr(nomAppli, normfont, 65-(length/2), 3, k);
+	
+	
+	length = 0;
+	k = 14;
+	for (l = 0; l < k; l++)
+		length += normfont.length[author[l]-32] +1;
+	dispStr(author, normfont, 65-(length/2), 10, k);
+	
+	dispStr(pressKey, normfont, 0, 25, sizeof(pressKey)); 
+	dispStr(credits, normfont, 0, 50, sizeof(credits));
+	GetKey(&key);
+	
+	ML_clear_vram();
+	
+	dispStr(str, normfont, 0, 0, sizeof(str));
+	ML_display_vram();
+	sendSerial("pn");
+	if (getSerial())
+		return 1;
+	
+	return 0;
+}
+
+void chooseSub() {
+	
+	char str[200] = "Choisissez un subreddit\n\n1: /r/talesfromtechsupport\n2: /r/talesfromretail\n3: /r/askreddit\n4: /r/nosleep\n5: /r/caddit";
+	char sub;
+	ML_clear_vram();
+	dispStr(str, normfont, 1, 1, sizeof(str));
+	
+	do {
+		GetKey(&key);
+	} while (!(key >= KEY_CHAR_1 && key <= KEY_CHAR_5));
+	if (key == KEY_CHAR_1)
+		sub = 't';
+	else if (key == KEY_CHAR_2)
+		sub = 'r';
+	else if (key == KEY_CHAR_3)
+		sub = 'a';
+	else if (key == KEY_CHAR_4)
+		sub = 'n';
+	else if (key == KEY_CHAR_5)
+		sub = 'c';
+	
+	sendSerial(subreddit);
+	currentView = 0;
+	getSerial();
+}
+
 void sendSerial(unsigned char* code) {
-	//Serial_WriteByte('&');
 	Serial_WriteByte(code[0]);
 	Serial_WriteByte(code[1]);
 	Serial_WriteByte(';');
 	Serial_WriteByte('\n');
 }
 
-void getSerial() {
+char getSerial() {
 	int i = 0;
 	memset(strReceived, 0, sizeof(strReceived));
 	Serial_ClearReceiveBuffer();
 	byteReceived = '\0';
-	//locate(1,1); Print((unsigned char*)"Testttt");
 	while (1) {	
 		while(Serial_ReadByte(&byteReceived)==0 && byteReceived != '"' && byteReceived != '\0') {
 			strReceived[i] = byteReceived;
@@ -113,7 +183,12 @@ void getSerial() {
 				break;
 			}
 		}
+		if (IsKeyDown(KEY_CTRL_EXIT))
+			return 1;
 	}
+	return 0;
+	//dispStr(strReceived, normfont, 1, 1, i);
+	//GetKey(&key);
 	//dispStr(strReceived, normfont, 10, 10, i);
 }
 
@@ -146,11 +221,19 @@ void dispCmt(unsigned char* str, int strlen) {
 	
 	for (i = 0; i < strlen; i++) {
 		if (str[i] == '<') {
+			//char test[2] = {0, 0};
+			//test[0] = str[i+1];
+			//dispStr("Found a <", normfont, 1, 1, sizeof("Found a <"));
+			
+			//dispStr(test, normfont, 1, 10, 1);
+			//GetKey(&key);
 			if (str[i+1] == 't') { //it is the post
+				
 				int j = i+3;
 				int k = 0;
-				unsigned char post[30100] = {0};
-				
+				unsigned char post[10000] = {0};
+				//dispStr("Found text post", normfont, 1, 10, sizeof("Found text post"));
+				//GetKey(&key);
 				while (str[j] != '>') { //stocks the text of the post
 					post[k] = str[j];
 					k++;
@@ -165,10 +248,13 @@ void dispCmt(unsigned char* str, int strlen) {
 				i = j;
 			}
 			if (str[i+1] >= '1' && str[i+1] <= '9') { //it is a comment
+				
 				int j = i+3;
 				int k = 0;
 				unsigned char comment[2000] = {0};
 				int heightOfComment = 0;
+				//dispStr("Found a cmt", normfont, 1, 1, sizeof("Found a cmt"));
+				//GetKey(&key);
 				while (str[j] != '>') {
 					comment[k] = str[j];
 					k++;
@@ -285,7 +371,7 @@ int dispStr(unsigned char* str, struct Font font, int x2, int y, int strlen) {
 	
 		//word wrap: if the current character isn't a space, simply display it
 		if (str[k] != 32 && str[k] != '\0' && str[k] != '\n') {
-			//if (option = 1) {
+			if (y >= -6 && y < 68) {
 				long j = 1 << (6*font.length[str[k]-32])-1; //initializes a long for bit checking. The long is equal to 0b10000.. with number of zeroes being the maximum length of the character, minus 1 because there's already a 1.
 				char i;
 				
@@ -296,7 +382,7 @@ int dispStr(unsigned char* str, struct Font font, int x2, int y, int strlen) {
 						ML_pixel(x+i%(font.length[str[k]-32]), y+i/font.length[str[k]-32], 1); //if so, locates the pixel at the coordinates, using modulo and division to calculate the coordinates relative to the top left of the character
 					}
 				}
-			//}
+			}
 			
 			x += font.length[str[k]-32] + 1; //now that the character has been fully displayed, shifts the cursor right by the length of character + 1
 		} else if (str[k] == '\n') {
@@ -306,7 +392,7 @@ int dispStr(unsigned char* str, struct Font font, int x2, int y, int strlen) {
 			
 			int i = x+4; //initializes an int to count the number of total pixels the next word takes
 			int j = k+1; //initializes the char to the current char+1 (which is always another character)
-			while (str[j] != 32 && str[j] != '\0') { //as long as it doesn't encounter another space or end of string
+			while (str[j] != 32 && str[j] != '\0' && str[j] != '\n') { //as long as it doesn't encounter another space or end of string
 				i += font.length[str[j]-32]+1; //it increments i by the length of the character + 1
 				j++;
 			}
