@@ -5,7 +5,7 @@
 #include "fonts.h"
 #include "serial.h"
 
-#define SCROLL 1 //number of pixels to scroll at each press of the up/down key
+#define SCROLL 8 //number of pixels to scroll at each press of the up/down key
 
 unsigned long posY[2] = {0}; //array holding the scroll for each view, so that if the user comes back from a comment page, he keeps his scroll position on the post page
 unsigned int key; 
@@ -65,16 +65,22 @@ int AddIn_main(int isAppli, unsigned short OptionNum) {
 			else if (posY[currentView] >= SCROLL)
 				posY[currentView] -= SCROLL;
 		}
+		if (key == KEY_CTRL_SHIFT && posY[currentView] >= 64) {
+			posY[currentView] -= 64;
+		}
+		if (key == KEY_CTRL_ALPHA) {
+			posY[currentView] += 64;
+		}
 		if (key == KEY_CTRL_EXE && currentView == 0) {
 			getPost(posY[0]);
 			posY[1] = 0;
 		}
 		if (key == KEY_CTRL_EXIT && currentView == 1) {
 			currentView = 0;
-			sendSerial("st");
+			sendSerial(subreddit);
 			getSerial();
 		}
-		if (key == KEY_CTRL_SHIFT && !stringFinished) {
+		if (key == KEY_CTRL_VARS && !stringFinished) {
 			sendSerial("np");
 			getSerial();
 			posY[currentView] = 0;
@@ -89,11 +95,11 @@ int AddIn_main(int isAppli, unsigned short OptionNum) {
 
 char dispIntroScreen() {
 	
-	unsigned char nomAppli[10] = "Caddit";
-	unsigned char author[15] = "Par Zezombye";
-	unsigned char pressKey[75] = "Appuyez sur une touche pour commencer la connexion.";
-	unsigned char credits[100] = "Merci a Lephenixnoir, Dark Storm\n& la communaute de Planete Casio!";
-	unsigned char str[100] = "Connexion en cours...\n\nAppuyez sur [Exit] pour annuler.";
+	unsigned char nomAppli[10] = "Cad\x84di\x85t";
+	unsigned char author[15] = "Par Zezomb\x86ye";
+	unsigned char pressKey[75] = "Appuyez\x88 su\x87r une touch\x93 po\x94ur co\x95mme\x96ncer la connexion.";
+	unsigned char credits[100] = "Merci a Leph\x91ni\x92xnoir, Dark Storm\n& la communaut\x89 de Plan\x90te Casio!";
+	unsigned char str[100] = "Connexion en cours...\n\nAppuyez sur [DEL] pour annuler.";
 	int length = 0;
 	int l;
 	int k = 9;
@@ -101,24 +107,24 @@ char dispIntroScreen() {
 	ML_horizontal_line(17, 0, 127, 1);
 	for (l = 0; l < k; l++)
 		length += normfont.length[nomAppli[l]-32] +1;
-	dispStr(nomAppli, normfont, 65-(length/2), 3, k);
+	dispStr(nomAppli, normfont, 65-(length/2), 2, k);
 	
 	
 	length = 0;
 	k = 14;
 	for (l = 0; l < k; l++)
 		length += normfont.length[author[l]-32] +1;
-	dispStr(author, normfont, 65-(length/2), 10, k);
+	dispStr(author, normfont, 65-(length/2), 9, k);
 	
-	dispStr(pressKey, normfont, 0, 25, sizeof(pressKey)); 
-	dispStr(credits, normfont, 0, 50, sizeof(credits));
+	dispStr(pressKey, normfont, 0, 24, sizeof(pressKey)); 
+	dispStr(credits, normfont, 0, 49, sizeof(credits));
 	GetKey(&key);
 	
 	ML_clear_vram();
 	
 	dispStr(str, normfont, 0, 0, sizeof(str));
 	ML_display_vram();
-	sendSerial("pn");
+	sendSerial("hi");
 	if (getSerial())
 		return 1;
 	
@@ -146,6 +152,8 @@ void chooseSub() {
 	else if (key == KEY_CHAR_5)
 		sub = 'c';
 	
+	subreddit[0] = 's';
+	subreddit[1] = sub;
 	sendSerial(subreddit);
 	currentView = 0;
 	getSerial();
@@ -183,7 +191,7 @@ char getSerial() {
 				break;
 			}
 		}
-		if (IsKeyDown(KEY_CTRL_EXIT))
+		if (IsKeyDown(KEY_CTRL_DEL))
 			return 1;
 	}
 	return 0;
@@ -372,21 +380,29 @@ int dispStr(unsigned char* str, struct Font font, int x2, int y, int strlen) {
 		//word wrap: if the current character isn't a space, simply display it
 		if (str[k] != 32 && str[k] != '\0' && str[k] != '\n') {
 			if (y >= -6 && y < 68) {
-				long j = 1 << (6*font.length[str[k]-32])-1; //initializes a long for bit checking. The long is equal to 0b10000.. with number of zeroes being the maximum length of the character, minus 1 because there's already a 1.
+				
+				int charlength = font.length[str[k]-32];
+				unsigned long j = 1 << ((7*charlength)%32)-1; //initializes a long for bit checking. The long is equal to 0b10000.. with number of zeroes being the maximum length of the character, minus 1 because there's already a 1.
 				char i;
 				
-				for (i = 0; i < 6*font.length[str[k]-32]; i++) { //browses through the pixels of the character specified, shifting the 1 of j to the right each time, so that it makes 0b01000.., 0b001000... etc
-				
-					if (font.ltr[str[k]-32] & (j >> i)) { //checks if the bit that is a 1 in the j is also a 1 in the character
+				for (i = 0; i < 7*charlength; i++) { //browses through the pixels of the character specified, shifting the 1 of j to the right each time, so that it makes 0b01000.., 0b001000... etc
 					
-						ML_pixel(x+i%(font.length[str[k]-32]), y+i/font.length[str[k]-32], 1); //if so, locates the pixel at the coordinates, using modulo and division to calculate the coordinates relative to the top left of the character
+					if (font.ltr[str[k]-32][1-(7*charlength-i)/32] & j) { //checks if the bit that is a 1 in the j is also a 1 in the character
+					
+						ML_pixel(x+i%(charlength), y+i/charlength, 1); //if so, locates the pixel at the coordinates, using modulo and division to calculate the coordinates relative to the top left of the character
 					}
+					
+					if (j != 1)
+						j >>= 1;
+					else
+						j = 2147483648;
+					
 				}
 			}
 			
 			x += font.length[str[k]-32] + 1; //now that the character has been fully displayed, shifts the cursor right by the length of character + 1
 		} else if (str[k] == '\n') {
-			y += 7;
+			y += 8;
 			x = x2;
 		} else if (str[k] == ' ') { //the current character is a space, so see if it manages to display the word without going over x=128
 			
@@ -398,7 +414,7 @@ int dispStr(unsigned char* str, struct Font font, int x2, int y, int strlen) {
 			}
 			
 			if (i > 128) { //the word can't be displayed, note that it is STRICTLY superior because we added an unnecessary pixel at the end
-				y += 7; //goes on next line which is 8 pixels down
+				y += 8; //goes on next line which is 8 pixels down
 				x = x2; //puts cursor on beginning of line
 			} else {
 				x += 4;
