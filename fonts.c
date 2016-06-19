@@ -1,26 +1,28 @@
 #include "fonts.h"
 
-/*
+/*Here is how a character is defined.
 
-Here is how a character is defined.
+Each character is 7 pixels high. The length is defined by you in the length array.
 
-Each character is 6 pixels high. The length is defined by you in the length array.
+Because some characters (ex: m, M) are 5 px wide, the total amount is >32 bit,
+so the character is stored in an array of 2 longs. The first long is only used if
+the character is >32 bit.
 
-For example, the character '0', of length 3, is the following in binary:
+For example, the character 'M', of length 3, is the following in binary:
 
-111
-101
-101
-101
-111
-000
+00000
+10001
+11011
+10101
+10001
+10001
+00000
 
-You must not forget the "000" at the end, else your character will be shifted down by a pixel.
-Now just remove the newlines in the character. You should get: 111101101101111000
+You must not forget the "00000" at the end, else your character will be shifted down by a pixel.
+Now just remove the newlines in the character. You should get: 00000100011101110101100011000100000
 Put that in a binary to decimal converter and you've got your number representing the character.
 
 Also, make sure to define the correct length, else it will display gibberish.
-
 */
 
 struct Font normfont = {
@@ -102,7 +104,7 @@ struct Font normfont = {
 },{0,		1111 //j
 },{0,		154984 //k
 },{0,		62 //l
-},{5,		27973280 //m
+},{0,		27973280 //m
 },{0,		27496 //n
 },{0,		11088 //o
 },{0,		27508 //p
@@ -131,19 +133,21 @@ struct Font normfont = {
 },{0,		229376 //overline 0x87
 },{0,		693142620 //shrug face 0x88
 },{0,		801688 //é 0x89
+
+},{0,		201744 //for some reason, when the dispStr() function seeks the character at 0x90 and above
+},{0,		201744 //it actually seeks it 6 characters after. there is absolutely no logical way I can think of
+},{0,		201744 //that causes this bug. 0x90 (144) is not a significant number. neither is 6.
+},{0,		201744 //so rather than spending 4532 hours debugging, the fix is simple:
+},{0,		201744 //just put 6 characters between 0x90 and 0x95.
+},{0,		201744
+
 },{0,		1588120 //è 0x90
-},{0,		1588120
-},{0,		1588120
-},{0,		1588120
-},{0,		1588120
-},{0,		1588120
-},{0,		1588120
-},{0,		0
-},{0,		0
-},{0,		0
-},{0,		0
-},{0,		0
-},{0,		0
+},{0,		1588056 //à 0x91
+},{0,		1596280 //ù 0x92
+},{0,		14622 //ç 0x93
+},{0,		1617408 //² 0x94
+},{0,		55501872 //€ 0x95
+
 		
 	}},{ //lengths
 		3, //space
@@ -252,7 +256,24 @@ struct Font normfont = {
 		3, //overline
 		5, //shrug face
 		3, //é
+		3, //unused lengths, see letters comment
+		3,
+		3,
+		3,
+		3,
+		3,
 		3, //è
+		3, //à
+		3, //ù
+		3, //ç
+		3, //²
+		4, //€
+		3,
+		3,
+		3,
+		3,
+		3,
+		3,
 		3,
 		3,
 		3,
