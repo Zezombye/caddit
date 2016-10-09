@@ -138,7 +138,7 @@ struct Font normfont = {
 },{0,		201744 //it actually seeks it 6 characters after. there is absolutely no logical way I can think of
 },{0,		201744 //that causes this bug. 0x90 (144) is not a significant number. neither is 6.
 },{0,		201744 //so rather than spending 4532 hours debugging, the fix is simple:
-},{0,		201744 //just put 6 characters between 0x90 and 0x95.
+},{0,		201744 //just put 6 characters between 0x89 and 0x90.
 },{0,		201744
 
 },{0,		1588120 //è 0x90
@@ -147,6 +147,7 @@ struct Font normfont = {
 },{0,		14622 //ç 0x93
 },{0,		1617408 //² 0x94
 },{0,		55501872 //€ 0x95
+},{0,		1048716256 //somme 0x96
 
 		
 	}},{ //lengths
@@ -268,7 +269,7 @@ struct Font normfont = {
 		3, //ç
 		3, //²
 		4, //€
-		3,
+		5, //somme
 		3,
 		3,
 		3,
@@ -282,3 +283,59 @@ struct Font normfont = {
 		3
 	}
 };
+
+//displays a given string, using a given font, at the given coordinates
+//returns the height of the string
+int dispStr(unsigned char* str, int x2, int y) {
+	int k = 0;
+	int x = x2;
+	int y2 = y;
+	do { //browses through the given string
+	
+		//word wrap: if the current character isn't a space, simply display it
+		if (str[k] != ' ' && str[k] != '\0' && str[k] != '\n') {
+			if (y >= -6 && y < 68) {
+				
+				int charlength = normfont.length[str[k]-32];
+				unsigned long j = 1 << ((7*charlength)%32)-1; //initializes a long for bit checking. The long is equal to 0b10000.. with number of zeroes being the maximum length of the character, minus 1 because there's already a 1.
+				char i;
+				
+				for (i = 0; i < 7*charlength; i++) { //browses through the pixels of the character specified, shifting the 1 of j to the right each time, so that it makes 0b01000.., 0b001000... etc
+					
+					if (normfont.ltr[str[k]-32][1-(7*charlength-i)/33] & j) { //checks if the bit that is a 1 in the j is also a 1 in the character
+					
+						ML_pixel(x+i%(charlength), y+i/charlength, 1); //if so, locates the pixel at the coordinates, using modulo and division to calculate the coordinates relative to the top left of the character
+					}
+					
+					if (j != 1)
+						j >>= 1;
+					else
+						j = 2147483648;
+					
+				}
+			}
+			
+			x += normfont.length[str[k]-32] + 1; //now that the character has been fully displayed, shifts the cursor right by the length of character + 1
+		} else if (str[k] == '\n') {
+			y += 8;
+			x = x2;
+		} else if (str[k] == ' ') { //the current character is a space, so see if it manages to display the word without going over x=128
+			
+			int i = x+4; //initializes an int to count the number of total pixels the next word takes
+			int j = k+1; //initializes the char to the current char+1 (which is always another character)
+			while (str[j] != 32 && str[j] != '\0' && str[j] != '\n') { //as long as it doesn't encounter another space or end of string
+				i += normfont.length[str[j]-32]+1; //it increments i by the length of the character + 1
+				j++;
+			}
+			
+			if (i > 128) { //the word can't be displayed, note that it is STRICTLY superior because we added an unnecessary pixel at the end
+				y += 8; //goes on next line which is 8 pixels down
+				x = x2; //puts cursor on beginning of line
+			} else {
+				x += 4;
+			}
+		}
+		k++;
+	} while (str[k] != '\0');
+	return y+8-y2;
+}
