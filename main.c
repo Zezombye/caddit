@@ -21,7 +21,6 @@ unsigned char byteSent;
 char stringFinished = 1;
 
 
-//const unsigned char str[] = "<r /r/SandersForPresident> <p t=Here are some dank memes:\nLook of disapproval: \x82\_\x82\nLenny face: (\x83\x84\x83\)\nSunglasses: (\x86\x85\_\x85\)\nShrug: \x87\\\_(\x88\)_/\x87\" a=(ext.link) r/sandersforpresident u/Zezombye 45 upvotes\"> <p t=This is the title of the second post! Gotta make it long though so that I have to scroll.\" a=(self) r/askreddit u/lephenixnoir\"> <p t=the quick brown fox jumps over the lazy dog\nTHE QUICK BROWN FOX JUMPS OVER THE LAZY DOG!!! (why are we yelling?)\" a=goddammit test\"> <p t=Fourth post\" a=.\"";
 
 //postComments[0] = strCmt;
 //postComments[1] = strCmt2;
@@ -54,7 +53,6 @@ int AddIn_main(int isAppli, unsigned short OptionNum) {
 			dispPost(strReceived, sizeof(strReceived));
 		else
 			dispCmt(strReceived, 5010);
-			//dispCmt(strCmt, sizeof(strCmt)); //put this line once demo is finished
 			//getPost(posY[0]);
 		
 		ML_pixel(127,31,1); //debug pixel, used to test the "hitbox" of posts
@@ -95,10 +93,10 @@ int AddIn_main(int isAppli, unsigned short OptionNum) {
 
 char dispIntroScreen() {
 	
-	unsigned char nomAppli[10] = "Cad\x84di\x85t";
-	unsigned char author[15] = "Par Zezomb\x86ye";
-	unsigned char pressKey[75] = "Appuyez\x88 su\x87r une touch\x93 po\x94ur co\x95mme\x96ncer la connexion.";
-	unsigned char credits[100] = "Merci a Leph\x91ni\x92xnoir, Dark Storm\n& la communaut\x89 de Plan\x90te Casio!";
+	unsigned char nomAppli[10] = "Caddit";
+	unsigned char author[15] = "Par Zezombye";
+	unsigned char pressKey[75] = "Appuyez sur une touche pour commencer la connexion.";
+	unsigned char credits[100] = "Merci \x91 Leph\x89nixnoir, Dark Storm\n& la communaut\x89 de Plan\x90te Casio!";
 	unsigned char str[100] = "Connexion en cours...\n\nAppuyez sur [DEL] pour annuler.";
 	int length = 0;
 	int l;
@@ -107,22 +105,22 @@ char dispIntroScreen() {
 	ML_horizontal_line(17, 0, 127, 1);
 	for (l = 0; l < k; l++)
 		length += normfont.length[nomAppli[l]-32] +1;
-	dispStr(nomAppli, normfont, 65-(length/2), 2, k);
+	dispStr(nomAppli, 65-(length/2), 2);
 	
 	
 	length = 0;
 	k = 14;
 	for (l = 0; l < k; l++)
 		length += normfont.length[author[l]-32] +1;
-	dispStr(author, normfont, 65-(length/2), 9, k);
+	dispStr(author, 65-(length/2), 9);
 	
-	dispStr(pressKey, normfont, 0, 24, sizeof(pressKey)); 
-	dispStr(credits, normfont, 0, 49, sizeof(credits));
+	dispStr(pressKey, 0, 24); 
+	dispStr(credits, 0, 49);
 	GetKey(&key);
 	
 	ML_clear_vram();
 	
-	dispStr(str, normfont, 0, 0, sizeof(str));
+	dispStr(str, 0, 0);
 	ML_display_vram();
 	sendSerial("hi");
 	if (getSerial())
@@ -136,7 +134,7 @@ void chooseSub() {
 	char str[200] = "Choisissez un subreddit\n\n1: /r/talesfromtechsupport\n2: /r/talesfromretail\n3: /r/askreddit\n4: /r/nosleep\n5: /r/caddit";
 	char sub;
 	ML_clear_vram();
-	dispStr(str, normfont, 1, 1, sizeof(str));
+	dispStr(str, 1, 1);
 	
 	do {
 		GetKey(&key);
@@ -248,7 +246,7 @@ void dispCmt(unsigned char* str, int strlen) {
 					j++;
 				}
 				
-				currentPageHeight += dispStr(post, normfont, 0, currentPageHeight-posY[1], k); //increases the page height and displays it
+				currentPageHeight += dispStr(post, 0, currentPageHeight-posY[1]); //increases the page height and displays it
 				
 				//ML_horizontal_line(currentPageHeight-posY[1], 0, 127, 1); //draws a line after the post
 				
@@ -275,7 +273,7 @@ void dispCmt(unsigned char* str, int strlen) {
 					currentPageHeight += 3;
 				}
 				
-				heightOfComment += dispStr(comment, normfont, 2*(str[i+1]-49), currentPageHeight-posY[1], k);
+				heightOfComment += dispStr(comment, 2*(str[i+1]-49), currentPageHeight-posY[1]);
 				for (k = 0; k < 2*(str[i+1]-49); k+=2) {
 					ML_vertical_line(k, currentPageHeight-2-posY[1], currentPageHeight+heightOfComment-posY[1]-2, 1);
 				}
@@ -338,7 +336,7 @@ void dispPost(unsigned char* str, int strlen) {
 					}*/
 				}
 				
-				heightOfPost += dispStr(title, normfont, 0, currentPageHeight-posY[0], k);
+				heightOfPost += dispStr(title, 0, currentPageHeight-posY[0]);
 				j++;
 				
 				postHeights[currentPostRank] = heightOfPost;
@@ -363,66 +361,13 @@ void dispPost(unsigned char* str, int strlen) {
 				for (l = 0; l < k; l++)
 					subLength += normfont.length[subreddit[l]-32] +1;
 				
-				dispStr(subreddit, normfont, 65-(subLength/2), 3-posY[0], k);
+				dispStr(subreddit, 65-(subLength/2), 3-posY[0]);
 			}
 		}
 	}
 }
 
-//displays a given string, using a given font, at the given coordinates
-//returns the height of the string
-int dispStr(unsigned char* str, struct Font font, int x2, int y, int strlen) {
-	int k;
-	int x = x2;
-	int y2 = y;
-	for (k=0; k < strlen; k++) { //browses through the given string
-	
-		//word wrap: if the current character isn't a space, simply display it
-		if (str[k] != 32 && str[k] != '\0' && str[k] != '\n') {
-			if (y >= -6 && y < 68) {
-				
-				int charlength = font.length[str[k]-32];
-				unsigned long j = 1 << ((7*charlength)%32)-1; //initializes a long for bit checking. The long is equal to 0b10000.. with number of zeroes being the maximum length of the character, minus 1 because there's already a 1.
-				char i;
-				
-				for (i = 0; i < 7*charlength; i++) { //browses through the pixels of the character specified, shifting the 1 of j to the right each time, so that it makes 0b01000.., 0b001000... etc
-					
-					if (font.ltr[str[k]-32][1-(7*charlength-i)/32] & j) { //checks if the bit that is a 1 in the j is also a 1 in the character
-					
-						ML_pixel(x+i%(charlength), y+i/charlength, 1); //if so, locates the pixel at the coordinates, using modulo and division to calculate the coordinates relative to the top left of the character
-					}
-					
-					if (j != 1)
-						j >>= 1;
-					else
-						j = 2147483648;
-					
-				}
-			}
-			
-			x += font.length[str[k]-32] + 1; //now that the character has been fully displayed, shifts the cursor right by the length of character + 1
-		} else if (str[k] == '\n') {
-			y += 8;
-			x = x2;
-		} else if (str[k] == ' ') { //the current character is a space, so see if it manages to display the word without going over x=128
-			
-			int i = x+4; //initializes an int to count the number of total pixels the next word takes
-			int j = k+1; //initializes the char to the current char+1 (which is always another character)
-			while (str[j] != 32 && str[j] != '\0' && str[j] != '\n') { //as long as it doesn't encounter another space or end of string
-				i += font.length[str[j]-32]+1; //it increments i by the length of the character + 1
-				j++;
-			}
-			
-			if (i > 128) { //the word can't be displayed, note that it is STRICTLY superior because we added an unnecessary pixel at the end
-				y += 8; //goes on next line which is 8 pixels down
-				x = x2; //puts cursor on beginning of line
-			} else {
-				x += 4;
-			}
-		}
-	}
-	return y+8-y2;
-}
+
 //****************************************************************************
 //**************                                              ****************
 //**************                 Notice!                      ****************
